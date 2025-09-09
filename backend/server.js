@@ -14,6 +14,7 @@ import reviewRoute from './routes/reviewRoute.js'
 import categoryRouter from './routes/categoryRoute.js'
 import lookRouter from './routes/lookRoutes.js'
 import uploadRouter from './routes/uploadRoute.js'
+import newsletterRouter from './routes/newsletterRoute.js'
 import { handleMulterError } from './middleware/multer.js'
 
 dotenv.config()
@@ -64,7 +65,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // CORS configuration
 const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:4000'];
-const PROD_ORIGINS = ['https://adaa-jaipur-ein-bin-tin.vercel.app', 'https://adaa-admin-jaipur-ein-bin-tin.vercel.app','https://adda-jaipur.vercel.app'];
+const PROD_ORIGINS = ['https://adaa-jaipur-ein-bin-tin.vercel.app', 'https://adaa-admin-jaipur-ein-bin-tin.vercel.app','https://adda-jaipur.vercel.app','https://admin-adaa-jaipur.vercel.app'];
 const allowedOrigins = process.env.NODE_ENV === 'production' ? PROD_ORIGINS : [...DEV_ORIGINS, ...PROD_ORIGINS];
 
 app.use(cors({
@@ -92,6 +93,7 @@ app.use('/api/reviews', reviewRoute);
 app.use('/api/category', categoryRouter); 
 app.use('/api/looks', lookRouter);
 app.use('/api/upload', uploadLimiter, uploadRouter);
+app.use('/api/newsletter', newsletterRouter);
 
 app.get('/',(req,res)=>{
     res.send("API Working")

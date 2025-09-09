@@ -17,7 +17,24 @@ const ShopContextProvider = (props) => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [token, setToken] = useState(() => {
+    const storedToken = localStorage.getItem("token");
+    // Clear token if it's from localhost development
+    if (storedToken && window.location.hostname !== 'localhost') {
+      // Check if token is from development (you can add more checks here)
+      try {
+        // If token exists but we're in production, clear it to force re-login
+        if (storedToken) {
+          localStorage.removeItem("token");
+          return "";
+        }
+      } catch (error) {
+        localStorage.removeItem("token");
+        return "";
+      }
+    }
+    return storedToken || "";
+  });
   const [isLoggedIn, setIsLoggedIn] = useState(!!token); // Reflect login status based on token
   const navigate = useNavigate();
 

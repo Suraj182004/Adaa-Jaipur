@@ -157,14 +157,6 @@ const Navbar = () => {
               </span>
             </Link>
 
-            <a
-              href="https://adaa-admin-jaipur-ein-bin-tin.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:block text-lg font-bold text-custom-green hover:text-custom-blue transition-colors duration-200"
-            >
-              Admin
-            </a>
 
             <button
               onClick={() => setVisible(!visible)}
@@ -229,14 +221,6 @@ const Navbar = () => {
                     {item}
                   </NavLink>
                 ))}
-                <a
-                  href="https://adaa-admin-jaipur-ein-bin-tin.vercel.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-custom-green hover:bg-gray-50 transition-colors duration-200"
-                >
-                  ADMIN
-                </a>
               </div>
             </div>
           </div>

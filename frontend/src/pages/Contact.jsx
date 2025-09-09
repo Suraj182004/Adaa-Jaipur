@@ -35,33 +35,31 @@ const Contact = () => {
     }
 
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+      
       const response = await axios.post(
-        `/mailchimp/3.0/lists/${import.meta.env.VITE_MAILCHIMP_AUDIENCE_ID}/members`,
+        `${backendUrl}/api/newsletter/subscribe`,
         {
-          email_address: newsletterEmail,
-          status: "subscribed"
+          email: newsletterEmail
         },
         {
           headers: {
-            Authorization: `apikey ${import.meta.env.VITE_MAILCHIMP_API_KEY}`,
             'Content-Type': 'application/json'
           }
         }
       );
 
-      if ([200, 201].includes(response.status)) {
+      if (response.data.success) {
         setNewsletterSuccess(true);
         setNewsletterEmail('');
         setTimeout(() => setNewsletterSuccess(false), 5000);
+      } else {
+        setNewsletterError(response.data.message || 'Subscription failed');
       }
     } catch (err) {
-      console.error('Mailchimp Error:', err);
-      const errorMessage = err.response?.data?.title || 'Subscription failed';
-      setNewsletterError(
-        errorMessage.includes("already subscribed") ? "Already subscribed" :
-        errorMessage.includes("forgotten email") ? "Email was previously unsubscribed" :
-        'Network error - please try again later'
-      );
+      console.error('Newsletter Error:', err);
+      const errorMessage = err.response?.data?.message || 'Subscription failed';
+      setNewsletterError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
