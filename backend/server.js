@@ -143,6 +143,16 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Health check endpoint for UptimeRobot
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        message: 'Server is running'
+    });
+});
+
 app.listen(port,()=>console.log('Server started on Port:'+port))
 
 // Fail-fast handlers
