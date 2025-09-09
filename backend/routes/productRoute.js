@@ -7,7 +7,8 @@ import {
     editProduct,
     addProductFromCsv,
     restockProduct,
-    getProductStock
+    getProductStock,
+    removeAllProducts
 } from '../controllers/productController.js';
 import { upload, handleMulterError } from '../middleware/multer.js';
 import adminAuth from '../middleware/adminAuth.js';
@@ -32,6 +33,7 @@ productRouter.post('/add',
 productRouter.post('/add-csv', adminAuth, addProductFromCsv);
 
 productRouter.post('/remove', adminAuth, removeProduct);
+productRouter.delete('/remove-all', adminAuth, removeAllProducts);
 productRouter.post('/single', singleProduct);
 productRouter.get('/list', listProducts);
 

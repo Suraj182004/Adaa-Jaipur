@@ -106,7 +106,7 @@ export const toggleCategoryDisplay = async (categoryId, displaySettings, token) 
 export const addSubcategory = async (categoryId, subcategoryData, token) => {
   try {
     const response = await api.post(
-      `/${categoryId}/subcategories`, 
+      `/${categoryId}/subcategory`, 
       subcategoryData, 
       setAuthHeader(token)
     );
@@ -119,7 +119,7 @@ export const addSubcategory = async (categoryId, subcategoryData, token) => {
 export const updateSubcategory = async (categoryId, subcategoryId, subcategoryData, token) => {
   try {
     const response = await api.put(
-      `/${categoryId}/subcategories/${subcategoryId}`, 
+      `/${categoryId}/subcategory/${subcategoryId}`, 
       subcategoryData, 
       setAuthHeader(token)
     );
@@ -132,7 +132,7 @@ export const updateSubcategory = async (categoryId, subcategoryId, subcategoryDa
 export const deleteSubcategory = async (categoryId, subcategoryId, token) => {
   try {
     const response = await api.delete(
-      `/${categoryId}/subcategories/${subcategoryId}`, 
+      `/${categoryId}/subcategory/${subcategoryId}`, 
       setAuthHeader(token)
     );
     return response.data;

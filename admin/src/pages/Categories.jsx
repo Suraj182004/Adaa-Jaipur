@@ -106,7 +106,7 @@ const Categories = ({ token }) => {
         {
           headers: { 
             'Content-Type': 'multipart/form-data',
-            'token': token 
+            'Authorization': `Bearer ${token}`
           }
         }
       );

@@ -192,6 +192,77 @@ https://example.com/image17.jpg,https://example.com/image18.jpg,https://example.
         setCsvUploadProgress(((i + 1) / csvData.length) * 100);
 
         try {
+          // Normalize header variations (trim keys, ignore spacing/case differences)
+          const getCsvFieldValue = (row, candidates) => {
+            const candidateNorms = candidates.map(c => c.toLowerCase().replace(/\s+/g, ''));
+            for (const rawKey of Object.keys(row)) {
+              const normKey = rawKey.toLowerCase().replace(/\s+/g, '');
+              if (candidateNorms.includes(normKey)) {
+                const val = row[rawKey];
+                if (val !== undefined && val !== null && val.toString().trim() !== '') {
+                  return val.toString().trim();
+                }
+              }
+            }
+            return '';
+          };
+
+          const normalizeString = (str) => {
+            return (str || '')
+              .toString()
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, ' ')
+              .replace(/[^a-z0-9\s\/\-]/g, '') // keep letters, numbers, space, / and -
+              .replace(/\s*[\/\-]\s*/g, '-')   // normalize separators to single '-'
+              .replace(/\s+/g, ' ');
+          };
+
+          const normalizedCategory = getCsvFieldValue(product, ['category', 'Category', 'category ', 'Category ', 'Category Name', 'category name', 'cat']);
+          const normalizedSubcategoryRaw = getCsvFieldValue(product, ['subcategory', 'Subcategory', 'sub category', 'sub category ', 'Sub Category', 'Sub Category ']);
+
+          // Prefer certain subcategory tokens when multiple are present (e.g., "cord set/ Kurta set")
+          const pickPreferredSubcategory = (raw) => {
+            if (!raw) return '';
+            // Split by '/', '|', or ',' and normalize tokens
+            const tokens = raw
+              .split(/[\/|,]/)
+              .map(t => t.trim())
+              .filter(Boolean);
+            if (tokens.length === 0) return raw.trim();
+
+            // Ranking: higher score wins
+            const rankToken = (t) => {
+              const n = t.toLowerCase().replace(/\s+/g, ' ');
+              if (n.includes('cord') && n.includes('set')) return 100; // cord set highest priority
+              if (n.includes('kurta') && n.includes('set')) return 50;
+              return 10; // default low priority
+            };
+            let best = tokens[0];
+            let bestScore = rankToken(best);
+            for (const t of tokens) {
+              const s = rankToken(t);
+              if (s > bestScore) {
+                best = t;
+                bestScore = s;
+              }
+            }
+            return best.trim();
+          };
+          // Alias map for subcategory names
+          const aliasMap = (val) => {
+            const v = (val || '').toString().trim().toLowerCase();
+            if (v === 'tops' || v === 'top ') return 'Top';
+            if (v === 'kurta set' || v === 'kurta  set' || v === 'kurta  set ' || v === 'kurta  sets') return 'Kurta Set';
+            if (v === 'suit set' || v === 'suit  set' || v === 'suit  sets') return 'Suit Set';
+            if (v.includes('cord') && v.includes('set')) return 'CORD Sets';
+            if (v === 'plazo pant' || v === 'plazo pants' || v === 'palazzo pant' || v === 'palazzo pants') return 'Plazo Pants';
+            if (v === 'kurta') return 'Kurta';
+            if (v === 'dress' || v === 'dresses') return 'Dress';
+            return val;
+          };
+          const normalizedSubcategory = aliasMap(pickPreferredSubcategory(normalizedSubcategoryRaw));
+
           // Prepare product data
           const productData = {
             name: product.name || '',
@@ -199,8 +270,9 @@ https://example.com/image17.jpg,https://example.com/image18.jpg,https://example.
             price: parseFloat(product.price) || 0,
             discountPercentage: parseFloat(product.discountPercentage) || 0,
             quantity: parseInt(product.quantity) || 0,
-            category: product.category || '',
-            subcategory: product.subcategory || '',
+            // Use normalized fields for category and subcategory
+            category: normalizedCategory,
+            subcategory: normalizedSubcategory,
             sizes: product.sizes ? product.sizes.split(',').map(s => s.trim()) : [],
             bestseller: parseBooleanFromCsv(product.bestseller),
             ecoFriendly: parseBooleanFromCsv(product.ecoFriendly),
@@ -216,14 +288,20 @@ https://example.com/image17.jpg,https://example.com/image18.jpg,https://example.
 
           // Find category and subcategory IDs
           console.log('Available categories:', categories.map(c => ({ name: c.name, id: c._id })));
-          console.log('Looking for category:', product.category);
+          console.log('Looking for category:', productData.category);
           
-          // Try exact match first, then case-insensitive
-          let categoryObj = categories.find(cat => cat.name === product.category);
-          if (!categoryObj) {
-            categoryObj = categories.find(cat => 
-              cat.name.toLowerCase() === product.category.toLowerCase()
-            );
+          // Try exact, then case-insensitive, then slug/normalized match
+          let categoryObj = categories.find(cat => cat.name === productData.category);
+          if (!categoryObj && productData.category) {
+            const soughtLower = productData.category.toLowerCase();
+            categoryObj = categories.find(cat => (cat.name || '').toLowerCase() === soughtLower);
+          }
+          if (!categoryObj && productData.category) {
+            const soughtNorm = normalizeString(productData.category).replace(/\s+/g, '-');
+            categoryObj = categories.find(cat => {
+              const nameSlug = normalizeString(cat.name).replace(/\s+/g, '-');
+              return nameSlug === soughtNorm;
+            });
           }
           
           console.log('Found category:', categoryObj);
@@ -231,14 +309,20 @@ https://example.com/image17.jpg,https://example.com/image18.jpg,https://example.
           if (categoryObj) {
             productData.categoryId = categoryObj._id;
             console.log('Available subcategories:', categoryObj.subcategories.map(s => ({ name: s.name, id: s._id })));
-            console.log('Looking for subcategory:', product.subcategory);
+            console.log('Looking for subcategory:', productData.subcategory);
             
-            // Try exact match first, then case-insensitive
-            let subcategoryObj = categoryObj.subcategories.find(sub => sub.name === product.subcategory);
-            if (!subcategoryObj) {
-              subcategoryObj = categoryObj.subcategories.find(sub => 
-                sub.name.toLowerCase() === product.subcategory.toLowerCase()
-              );
+            // Try exact match, then case-insensitive, then slug/normalized match
+            let subcategoryObj = categoryObj.subcategories.find(sub => sub.name === productData.subcategory);
+            if (!subcategoryObj && productData.subcategory) {
+              const soughtSub = productData.subcategory.toLowerCase();
+              subcategoryObj = categoryObj.subcategories.find(sub => (sub.name || '').toLowerCase() === soughtSub);
+            }
+            if (!subcategoryObj && productData.subcategory) {
+              const soughtSubNorm = normalizeString(productData.subcategory).replace(/\s+/g, '-');
+              subcategoryObj = categoryObj.subcategories.find(sub => {
+                const subSlug = normalizeString(sub.name).replace(/\s+/g, '-');
+                return subSlug === soughtSubNorm;
+              });
             }
             
             console.log('Found subcategory:', subcategoryObj);
@@ -331,7 +415,11 @@ https://example.com/image17.jpg,https://example.com/image18.jpg,https://example.
               }
             });
           } catch (error) {
-            if (error.response && error.response.status === 404) {
+            const status = error.response?.status;
+            const message = error.response?.data?.message || '';
+            const isImageMissing = message.toLowerCase().includes('image') || message.toLowerCase().includes('at least one');
+            const isMissingFields = message.toLowerCase().includes('missing required fields');
+            if (status === 404 || status === 400 && (isImageMissing || isMissingFields)) {
               console.log('CSV endpoint not found, trying regular endpoint with dummy image...');
               
               // Create a dummy image file for the regular endpoint

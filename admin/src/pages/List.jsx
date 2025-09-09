@@ -39,6 +39,7 @@ const List = ({ token }) => {
   const [showOutOfStockOnly, setShowOutOfStockOnly] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [productToRemove, setProductToRemove] = useState(null);
+  const [showRemoveAllModal, setShowRemoveAllModal] = useState(false);
 
   const fetchList = async () => {
     try {
@@ -49,6 +50,35 @@ const List = ({ token }) => {
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load products");
       setLoading(false);
+    }
+  };
+
+  const removeAllProducts = async () => {
+    try {
+      const loadingToast = toast.loading("Removing all products...");
+      const response = await axios.delete(
+        `${backendUrl}/api/product/remove-all`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          timeout: 20000
+        }
+      );
+
+      toast.dismiss(loadingToast);
+
+      if (response.data.success) {
+        toast.success("All products removed successfully!");
+        setShowRemoveAllModal(false);
+        fetchList();
+      } else {
+        toast.error(response.data.message || "Failed to remove all products");
+      }
+    } catch (error) {
+      toast.dismiss();
+      console.error("Error removing all products:", error);
+      toast.error(error.response?.data?.message || "Failed to remove all products");
     }
   };
 
@@ -185,9 +215,17 @@ const List = ({ token }) => {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Products List</h2>
-          <Link to="/add" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Add New Product
-          </Link>
+          <div className="flex gap-3">
+            <Link to="/add" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              Add New Product
+            </Link>
+            <button
+              onClick={() => setShowRemoveAllModal(true)}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Delete All Products
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -331,6 +369,55 @@ const List = ({ token }) => {
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
             <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+          </div>
+        )}
+        {showRemoveAllModal && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" 
+            style={{ animation: 'fadeIn 0.3s ease-out' }}
+            onClick={() => setShowRemoveAllModal(false)}
+          >
+            <div 
+              className="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl" 
+              style={{ animation: 'slideUp 0.3s ease-out' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-center mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  Delete All Products
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Are you absolutely sure you want to delete ALL products?
+                </p>
+                <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-red-500">
+                  <p className="text-sm text-gray-700 font-medium">This will permanently remove every product. This action cannot be undone.</p>
+                </div>
+                <p className="text-sm text-red-600 font-medium mt-4">
+                  ⚠️ Proceed with caution
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowRemoveAllModal(false)}
+                  className="flex-1 px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={removeAllProducts}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-300 shadow-lg"
+                >
+                  Delete All
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

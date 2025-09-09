@@ -1,6 +1,7 @@
 import cloudinary from '../config/cloudinary.js';
 import fs from 'fs';
 import Product from '../models/productModel.js';
+import CategoryModel from '../models/categoryModel.js';
 import { uploadToCloudinary } from '../middleware/multer.js';
 
 // Add Product Controller
@@ -394,21 +395,38 @@ export const removeProduct = async (req, res) => {
     }
 };
 
+// Delete ALL Products (admin only)
+export const removeAllProducts = async (req, res) => {
+    try {
+        await Product.deleteMany({});
+        res.json({ 
+            success: true, 
+            message: 'All products removed successfully' 
+        });
+    } catch (error) {
+        console.error('Error in removeAllProducts:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message || 'Failed to remove all products' 
+        });
+    }
+};
+
 // CSV Bulk Upload Controller
 export const addProductFromCsv = async (req, res) => {
     try {
         console.log('Starting CSV product upload...');
         console.log('Request body:', req.body);
 
-        const { 
-            name, 
-            description, 
-            price, 
+        const {
+            name,
+            description,
+            price,
             discountPercentage,
-            category,
-            subcategory,
-            categoryId,
-            subcategoryId,
+            category: categoryNameRaw,
+            subcategory: subcategoryNameRaw,
+            categoryId: categoryIdRaw,
+            subcategoryId: subcategoryIdRaw,
             bestseller,
             ecoFriendly,
             sizes,
@@ -417,38 +435,76 @@ export const addProductFromCsv = async (req, res) => {
             quantity
         } = req.body;
 
-        // Validate required fields
-        if (!name || !description || !price || !category || !subcategory || !categoryId || !subcategoryId) {
+        const normalize = (str) => (str || '')
+            .toString()
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ');
+        const toSlug = (str) => normalize(str)
+            .replace(/[^a-z0-9\s\/\-]/g, '')
+            .replace(/\s*[\/\-]\s*/g, '-')
+            .replace(/\s+/g, '-');
+        const aliasSubcategory = (val) => {
+            const v = normalize(val);
+            if (!v) return '';
+            if (v.includes('cord') && v.includes('set')) return 'CORD Sets';
+            if (v.includes('kurta') && v.includes('set')) return 'Kurta Set';
+            if (v.includes('suit') && v.includes('set')) return 'Suit Set';
+            if (v === 'tops' || v === 'top') return 'Top';
+            if (v === 'dress' || v === 'dresses') return 'Dress';
+            if (v.includes('plazo') || v.includes('palazzo')) return 'Plazo Pants';
+            if (v === 'kurta') return 'Kurta';
+            return val;
+        };
+
+        // Derive IDs from names if missing
+        let derivedCategoryId = categoryIdRaw;
+        let derivedSubcategoryId = subcategoryIdRaw;
+        const categoryName = (categoryNameRaw || '').toString().trim();
+        const subcategoryNamePreferred = aliasSubcategory((subcategoryNameRaw || '').toString().trim());
+
+        if (!derivedCategoryId && categoryName) {
+            const allCategories = await CategoryModel.find();
+            const soughtSlug = toSlug(categoryName);
+            let cat = allCategories.find(c => normalize(c.name) === normalize(categoryName));
+            if (!cat) {
+                cat = allCategories.find(c => toSlug(c.name) === soughtSlug || c.slug === soughtSlug);
+            }
+            if (cat) {
+                derivedCategoryId = cat._id.toString();
+                if (!derivedSubcategoryId && subcategoryNamePreferred) {
+                    const soughtSubSlug = toSlug(subcategoryNamePreferred);
+                    let sub = (cat.subcategories || []).find(s => normalize(s.name) === normalize(subcategoryNamePreferred));
+                    if (!sub) {
+                        sub = (cat.subcategories || []).find(s => toSlug(s.name) === soughtSubSlug || s.slug === soughtSubSlug);
+                    }
+                    // Special mapping: 'kurta' -> 'Kurta Set' if present
+                    if (!sub && normalize(subcategoryNamePreferred) === 'kurta') {
+                        sub = (cat.subcategories || []).find(s => normalize(s.name) === 'kurta set');
+                    }
+                    if (sub) {
+                        derivedSubcategoryId = sub._id.toString();
+                    }
+                }
+            }
+        }
+
+        // Minimal validation (subcategory and images optional)
+        if (!name || !description || !price || !derivedCategoryId) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: name, description, price, category, subcategory, categoryId, subcategoryId'
+                message: 'Missing required fields: name, description, price, categoryId'
             });
         }
 
-        // Validate image array
-        if (!image || !Array.isArray(image) || image.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'At least one product image is required'
-            });
-        }
-
-        // Filter out empty image URLs
-        const validImages = image.filter(img => img && img.trim() !== '');
-        
-        if (validImages.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'At least one valid product image URL is required'
-            });
-        }
+        const validImages = Array.isArray(image) ? image.filter(img => img && img.trim() !== '') : [];
 
         console.log('Creating new product from CSV with data:', {
             name,
-            category,
-            subcategory,
+            category: categoryName,
+            subcategory: subcategoryNamePreferred,
             imageCount: validImages.length,
-            hasVideo: video && video.length > 0
+            hasVideo: Array.isArray(video) && video.length > 0
         });
 
         const productData = {
@@ -456,11 +512,11 @@ export const addProductFromCsv = async (req, res) => {
             description,
             price: parseFloat(price) || 0,
             discountPercentage: parseFloat(discountPercentage) || 0,
-            image: validImages,
-            video: video && video.length > 0 ? video : [],
-            category,
-            subcategory,
-            categoryId,
+            image: validImages, // may be empty
+            video: Array.isArray(video) && video.length > 0 ? video : [],
+            category: categoryName || '',
+            subcategory: subcategoryNamePreferred || '',
+            categoryId: derivedCategoryId,
             bestseller: bestseller === true || bestseller === 'true',
             ecoFriendly: ecoFriendly === true || ecoFriendly === 'true',
             sizes: Array.isArray(sizes) ? sizes : [],
@@ -468,9 +524,8 @@ export const addProductFromCsv = async (req, res) => {
             date: Date.now()
         };
 
-        // Only add subcategoryId if it's not empty
-        if (subcategoryId && subcategoryId.trim() !== '') {
-            productData.subcategoryId = subcategoryId;
+        if (derivedSubcategoryId && derivedSubcategoryId.toString().trim() !== '') {
+            productData.subcategoryId = derivedSubcategoryId;
         }
 
         const product = new Product(productData);
