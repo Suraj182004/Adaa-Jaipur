@@ -22,6 +22,10 @@ dotenv.config()
 //App Config
 const app = express()
 const port = process.env.PORT || 4000
+
+// Trust proxy for rate limiting and proper IP detection
+app.set('trust proxy', 1);
+
 connectDB()
 
 // Rate limiting (different buckets per risk surface) - define BEFORE use
@@ -73,11 +77,12 @@ app.use(cors({
     // allow non-browser clients (e.g., curl, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.log('CORS blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'token']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'x-razorpay-signature']
 }));
 
 // Serve static files from uploads directory
@@ -110,6 +115,18 @@ app.use((err, req, res, next) => {
 
 // Multer error handling
 app.use(handleMulterError);
+
+// CORS error handler
+app.use((err, req, res, next) => {
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+            success: false,
+            message: 'CORS: Origin not allowed',
+            origin: req.headers.origin
+        });
+    }
+    next(err);
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
