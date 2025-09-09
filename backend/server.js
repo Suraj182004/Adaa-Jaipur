@@ -64,7 +64,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // CORS configuration
 const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:4000'];
-const PROD_ORIGINS = ['https://adaa-jaipur-ein-bin-tin.vercel.app', 'https://adaa-admin-jaipur-ein-bin-tin.vercel.app'];
+const PROD_ORIGINS = ['https://adaa-jaipur-ein-bin-tin.vercel.app', 'https://adaa-admin-jaipur-ein-bin-tin.vercel.app','https://adda-jaipur.vercel.app'];
 const allowedOrigins = process.env.NODE_ENV === 'production' ? PROD_ORIGINS : [...DEV_ORIGINS, ...PROD_ORIGINS];
 
 app.use(cors({
