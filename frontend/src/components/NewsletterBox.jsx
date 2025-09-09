@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail } from 'lucide-react';
 import axios from 'axios';
+// Newsletter component for production deployment
 
 const NewsletterBox = () => {
     const [email, setEmail] = useState('');
